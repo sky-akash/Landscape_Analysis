@@ -85,6 +85,7 @@ st.set_page_config(layout="wide")
 st.title("🔍 Patent Landscape Analysis Dashboard")
 
 # Upload File
+# Upload File
 uploaded_file = st.file_uploader("Upload Patent File (CSV or Excel)", type=['csv', 'xlsx'])
 if uploaded_file:
     if uploaded_file.name.endswith('.csv'):
@@ -108,26 +109,30 @@ if uploaded_file:
         if st.button("Process and Tag Patents") and taxonomy_tree:
             with st.spinner("Preprocessing text and generating embeddings..."):
                 df = preprocess_dataframe(df)
-                #tfidf_vecs = get_tfidf_features(df['clean_text'])
-                #bert_vecs = get_bert_embeddings(df['clean_text'].tolist())
-                #patent_vecs = ensemble_vectors(tfidf_vecs, bert_vecs)
                 patent_vecs = get_bert_embeddings(df['clean_text'].tolist())
-
                 taxonomy_labels = taxonomy_tree
                 taxonomy_vecs = get_bert_embeddings(taxonomy_labels)
-
                 prob_df = compute_probabilities(patent_vecs, taxonomy_vecs, taxonomy_labels)
                 final_df = pd.concat([df[['Patent Number', 'Title']], prob_df], axis=1)
 
             st.success("Tagging Complete")
             st.dataframe(final_df.head(10))
-            #st.download_button("Download Results as CSV", data=final_df.to_csv(index=False), file_name="patent_tagging_results.csv")
-            csv_data = final_df.to_csv(index=False)
-            csv_bytes = io.BytesIO(csv_data.encode('utf-8'))
 
-            st.download_button(
-                label="📥 Download Results as CSV",
-                data=csv_bytes,
-                file_name="patent_tagging_results.csv",
-                mime="text/csv"
-            )
+            if st.button("Save Results to File"):
+                output_path = "patent_tagging_results.csv"
+                final_df.to_csv(output_path, index=False)
+                st.success(f"File saved successfully as '{output_path}' in the current directory.")
+
+            # csv_data = final_df.to_csv(index=False)
+            # csv_bytes = io.BytesIO(csv_data.encode('utf-8'))
+            # st.download_button(
+            #     label="📥 Download Results as CSV",
+            #     data=csv_bytes,
+            #     file_name="patent_tagging_results.csv",
+            #     mime="text/csv"
+            # )
+
+
+# Save still not working and there is issue in Taxonomy 
+# Plus issue in Probabilitic approach for different taxonomies (need to find an approach for multiple categories to be mentioned for 1 patent)
+# 1 way.. do it for Level 1 category (with prob 1) but in this case need to address the scenario of total being 1 even if none of it matches..
