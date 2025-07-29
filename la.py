@@ -12,6 +12,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sentence_transformers import SentenceTransformer
 from sklearn.preprocessing import normalize
 from sklearn.metrics.pairwise import cosine_similarity
+import io
 
 # Ensure necessary downloads
 nltk.download('punkt')
@@ -43,20 +44,20 @@ def preprocess_dataframe(df):
     df['clean_text'] = df['combined'].apply(clean_text)
     return df
 
-def build_taxonomy_input():
-    st.markdown("### Define Taxonomy Hierarchy")
-    taxonomy = {}
-    with st.expander("Add Taxonomy Categories"):
-        level1 = st.text_input("Level 1 Category")
-        level2 = st.text_input("Level 2 Subcategory")
-        level3 = st.text_input("Level 3 Sub-subcategory")
-        if level1:
-            taxonomy['L1'] = level1
-        if level2:
-            taxonomy['L2'] = level2
-        if level3:
-            taxonomy['L3'] = level3
-    return taxonomy
+def build_taxonomy_tree():
+    st.markdown("### 📚 Define Taxonomy Hierarchy (Tree Structure)")
+    taxonomy_tree = []
+    with st.expander("Add Taxonomy Tree"):
+        with st.form("taxonomy_form"):
+            st.write("Add multiple taxonomy paths from root to leaves")
+            path_container = st.container()
+            num_paths = st.number_input("How many taxonomy paths do you want to define?", min_value=1, max_value=50, value=3)
+            for i in range(num_paths):
+                path = st.text_input(f"Path {i+1} (separate levels with ' > '):", key=f"path_{i}")
+                if path:
+                    taxonomy_tree.append(path.strip())
+            submitted = st.form_submit_button("Submit Taxonomy Tree")
+    return taxonomy_tree
 
 def get_tfidf_features(texts):
     vectorizer = TfidfVectorizer(max_features=300)
@@ -101,18 +102,18 @@ if uploaded_file:
         # Domain Input
         domain = st.text_input("Enter the Domain for Landscape Analysis (e.g., Wildfire Sensors)")
 
-        # Taxonomy
-        taxonomy = build_taxonomy_input()
+        # Taxonomy Tree Input
+        taxonomy_tree = build_taxonomy_tree()
 
-        if st.button("Process and Tag Patents"):
+        if st.button("Process and Tag Patents") and taxonomy_tree:
             with st.spinner("Preprocessing text and generating embeddings..."):
                 df = preprocess_dataframe(df)
-                tfidf_vecs = get_tfidf_features(df['clean_text'])
-                bert_vecs = get_bert_embeddings(df['clean_text'].tolist())
-                patent_vecs = ensemble_vectors(tfidf_vecs, bert_vecs)
+                #tfidf_vecs = get_tfidf_features(df['clean_text'])
+                #bert_vecs = get_bert_embeddings(df['clean_text'].tolist())
+                #patent_vecs = ensemble_vectors(tfidf_vecs, bert_vecs)
+                patent_vecs = get_bert_embeddings(df['clean_text'].tolist())
 
-                # Prepare taxonomy text and vectors
-                taxonomy_labels = list(taxonomy.values())
+                taxonomy_labels = taxonomy_tree
                 taxonomy_vecs = get_bert_embeddings(taxonomy_labels)
 
                 prob_df = compute_probabilities(patent_vecs, taxonomy_vecs, taxonomy_labels)
@@ -120,7 +121,13 @@ if uploaded_file:
 
             st.success("Tagging Complete")
             st.dataframe(final_df.head(10))
-            st.download_button("Download Results as CSV", data=final_df.to_csv(index=False), file_name="patent_tagging_results.csv")
+            #st.download_button("Download Results as CSV", data=final_df.to_csv(index=False), file_name="patent_tagging_results.csv")
+            csv_data = final_df.to_csv(index=False)
+            csv_bytes = io.BytesIO(csv_data.encode('utf-8'))
 
-
-# Didn't run for incompatible matrix dimensions
+            st.download_button(
+                label="📥 Download Results as CSV",
+                data=csv_bytes,
+                file_name="patent_tagging_results.csv",
+                mime="text/csv"
+            )
